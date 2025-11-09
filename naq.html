@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>NAQ - Questionario</title>
+<style>
+  :root{
+    --bg:#f6f5f2;
+    --card:#ffffff;
+    --primary:#0b66a6; /* deep blue */
+    --accent:#c59a3d;  /* warm gold */
+    --danger:#c0392b;
+    --muted:#6b7280;
+    --glass: rgba(11,102,166,0.06);
+    --radius:12px;
+  }
+  html,body{height:100%; margin:0; font-family: "Inter", "Segoe UI", Roboto, Arial, sans-serif; background:var(--bg); color:#222;}
+  .wrap{max-width:920px; margin:28px auto; padding:20px; box-sizing:border-box;}
+  .card{background:var(--card); border-radius:var(--radius); box-shadow:0 8px 30px rgba(32,45,60,0.06); padding:26px;}
+  h1{margin:0 0 6px; font-size:24px; color:#123;}
+  p.lead{margin:8px 0 18px; color:var(--muted);}
+
+  /* progress */
+  .progress-wrap{display:flex; align-items:center; gap:12px; margin-bottom:14px;}
+  .progress-bar-outer{flex:1; background:#efeae0; height:12px; border-radius:999px; overflow:hidden;}
+  .progress-bar-inner{height:100%; width:0%; background:linear-gradient(90deg,var(--accent),#e6c57a); transition:width .35s ease;}
+  .progress-text{min-width:140px; text-align:right; font-size:13px; color:var(--muted);}
+
+  /* form */
+  form .block-title{font-weight:600; margin:12px 0;}
+  .question{padding:12px; border-radius:10px; transition:all .18s ease; border:1px solid transparent; margin-bottom:10px;}
+  .question:hover{transform:translateY(-3px); box-shadow:0 6px 18px rgba(11,102,166,0.04);}
+  .q-text{margin:0 0 8px; font-weight:600; color:#0e3b5a;}
+  .opts{display:grid; grid-template-columns:repeat(2,1fr); gap:10px;}
+  .opt{background:#fff; padding:12px 14px; border-radius:10px; cursor:pointer; border:1px solid #f0e9df; display:flex; align-items:center; gap:12px; transition:all .12s ease;}
+  .opt input{display:none;}
+  .opt.selected{background:var(--glass); border-color:rgba(11,102,166,0.18); box-shadow:0 6px 20px rgba(11,102,166,0.04);}
+  .opt .dot{width:14px; height:14px; border-radius:50%; border:2px solid #d1c9bf; display:inline-block; box-sizing:border-box;}
+  .opt.selected .dot{background:var(--accent); border-color:var(--accent);}
+
+  .controls{display:flex; gap:12px; margin-top:16px; align-items:center; justify-content:space-between;}
+  .controls .left{display:flex; gap:12px; align-items:center;}
+  button.primary{background:var(--primary); color:#fff; border:none; padding:12px 18px; border-radius:10px; cursor:pointer; font-weight:700; transition:transform .12s ease, box-shadow .12s;}
+  button.primary:hover{transform:translateY(-2px); box-shadow:0 10px 26px rgba(11,102,166,0.12);}
+  button.ghost{background:transparent; border:1px solid #e6e0d6; padding:10px 14px; border-radius:10px; cursor:pointer; color:var(--muted);}
+  .muted{color:var(--muted); font-size:13px;}
+
+  /* popup legal */
+  #legal-popup{position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(16,24,40,0.6); z-index:9999;}
+  #legal-popup .modal{width:92%; max-width:680px; background:var(--card); padding:22px; border-radius:14px; box-shadow:0 18px 40px rgba(10,20,40,0.18);}
+  #legal-popup h3{margin:0 0 8px;}
+  #legal-popup p{color:var(--muted); margin:6px 0 12px;}
+
+  /* result */
+  #resultBox{display:none; margin-top:16px; padding:18px; border-radius:12px; color:#fff; white-space:pre-wrap;}
+  .result-title{font-weight:800; margin-bottom:8px; font-size:18px;}
+  .result-sub{font-size:14px; color:rgba(255,255,255,0.95); line-height:1.45;}
+
+  /* responsive */
+  @media (max-width:720px){
+    .opts{grid-template-columns:1fr;}
+    .progress-text{display:none;}
+  }
+  .muted-note{font-size:13px; color:var(--muted); margin-top:12px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card" id="mainCard" aria-live="polite">
+    <h1>NAQ - Questionario (anonimo)</h1>
+    <p class="lead">Compila sinceramente. I risultati sono mostrati solo alla fine e <strong>non vengono salvati</strong>.</p>
+
+    <div class="progress-wrap" id="progressWrap" style="display:none;">
+      <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBarInner"></div></div>
+      <div class="progress-text" id="progressText">Domanda 0 / 25</div>
+    </div>
+
+    <!-- container for forms -->
+    <div id="formArea"></div>
+
+    <!-- ask female -->
+    <div id="askFemaleArea" style="display:none; margin-top:18px; text-align:center;">
+      <p style="font-weight:700; color:var(--primary); margin:6px 0;">Sei donna e vuoi compilare la parte femminile per una valutazione dedicata?</p>
+      <p style="font-style:italic; color:var(--muted); margin:0 0 12px;">“Scopri il tuo potenziale unico: la tua forza e leadership possono guidare e ispirare il mondo.”</p>
+      <div style="display:flex; gap:12px; justify-content:center;">
+        <button class="primary" id="btnYesFemale">Sì, proseguo</button>
+        <button class="ghost" id="btnNoFemale">No, termina qui</button>
+      </div>
+    </div>
+
+    <div id="resultArea" style="margin-top:12px;"></div>
+
+    <p class="muted-note">Puoi interrompere in qualsiasi momento: nessun dato verrà memorizzato.</p>
+  </div>
+</div>
+
+<!-- legal popup -->
+<div id="legal-popup" role="dialog" aria-modal="true">
+  <div class="modal">
+    <h3>Informativa Legale – Questionario NAQ</h3>
+    <p>Benvenuto/a! Questo questionario è completamente anonimo. Nessun dato personale o risposte verranno salvate o trasferite. I risultati sono mostrati solo al termine della compilazione e hanno scopo indicativo. La parte femminile è opzionale.</p>
+    <p style="font-weight:600;">Per proseguire clicca "Accetto". Se non accetti, chiudi questa finestra o abbandona la pagina.</p>
+    <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+      <button class="ghost" id="btnDecline">Esci</button>
+      <button class="primary" id="btnAccept">Accetto</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ====== Questions data (standard 25 + female 30) ====== */
+const standardQuestions = [
+  {text:"1. Come reagisci davanti a un fallimento?", options:["Mi deprimo e mollo tutto","Rifletto e riprovo","Cerco colpe esterne","Lo trasformo in esperienza utile"]},
+  {text:"2. Quanto ti senti responsabile del tuo destino?", options:["1-3 (Bassa responsabilità)","4-6 (Responsabilità media)","7-8 (Alta responsabilità)","9-10 (Molto alta responsabilità)"]},
+  {text:"3. Quanto spesso ti senti motivato a migliorare anche quando le cose vanno bene?", options:["Mai","Raramente","Spesso","Sempre"]},
+  {text:"4. Quanto ti senti capace di gestire lo stress?", options:["Poco (1-3)","Abbastanza (4-6)","Bene (7-8)","Molto bene (9-10)"]},
+  {text:"5. Quanto ti senti fedele ai tuoi valori?", options:["1-3 (Bassa fedeltà)","4-6","7-8","9-10 (Molto fedele)"]},
+  {text:"6. Quanto ti impegni a raggiungere gli obiettivi che ti poni?", options:["Poco (1-3)","Moderatamente (4-6)","Molto (7-8)","Sempre con determinazione (9-10)"]},
+  {text:"7. Come reagisci a un feedback critico?", options:["Lo ignoro","Lo valuto ma non cambio","Lo uso per migliorare","Lo accolgo con gratitudine"]},
+  {text:"8. In che percentuale senti di agire secondo i tuoi valori reali?", options:["0-25%","26-50%","51-75%","76-100%"]},
+  {text:"9. Se potessi cambiare radicalmente vita domani, lo faresti?", options:["Sì, subito","Forse, ma ho paura","No, preferisco il conosciuto","Solo se guidato/a da qualcuno"]},
+  {text:"10. Quanto ti senti responsabile del benessere della tua comunità?", options:["1-3 (Bassa responsabilità)","4-6","7-8","9-10 (Molto responsabile)"]},
+  {text:"11. Quanto chiedi aiuto quando sei in difficoltà?", options:["Mai","Raramente","Spesso","Sempre"]},
+  {text:"12. Quanto ti senti libero/a di essere te stesso/a in gruppo?", options:["Poco (1-3)","Abbastanza (4-6)","Molto (7-8)","Completamente (9-10)"]},
+  {text:"13. Cosa pensi dell’idea di “investire per restituire”?", options:["È retorica","È giusta ma utopica","È un dovere morale","È la mia missione personale"]},
+  {text:"14. Se entrassi in un team di progetto etico, quale sarebbe la tua priorità?", options:["Avere visibilità","Ottenere un compenso","Imparare e contribuire","Far crescere gli altri insieme a me"]},
+  {text:"15. Hai mai rinunciato a un’opportunità perché incoerente con i tuoi valori?", options:["Mai","Raramente","Qualche volta","Spesso"]},
+  {text:"16. Quanto ti impegni in azioni di volontariato o sostegno sociale?", options:["Mai","Raramente","Spesso","Sempre"]},
+  {text:"17. Quanto ti senti fedele alle promesse che fai?", options:["1-3 (Poco fedele)","4-6","7-8","9-10 (Molto fedele)"]},
+  {text:"18. Se potessi rispondere a un questionario con una menzogna che ti avvantaggia, cosa faresti?", options:["Mentirei","Risponderei solo in parte onestamente","Direi la verità anche se mi penalizza","Non compilerei"]},
+  {text:"19. Quando hai una responsabilità verso un gruppo, come ti comporti?", options:["Cerco qualcuno che decida per me","Mi nascondo","Affronto e chiedo supporto","Guardo avanti e sostengo gli altri"]},
+  {text:"20. Quanto spesso cambi opinione dopo aver ascoltato punti di vista diversi?", options:["Mai","Raramente","Spesso","Sempre"]},
+  {text:"21. Quanto tendi a giustificare i tuoi errori?", options:["Sempre","Spesso","Raramente","Mai"]},
+  {text:"22. Quanto sei consapevole dei tuoi limiti?", options:["Poco","Abbastanza","Molto","Completamente"]},
+  {text:"23. Quanto sei disposto/a a cambiare un comportamento se ti viene segnalato come dannoso?", options:["Mai","Raramente","Spesso","Sempre"]},
+  {text:"24. Ti capita mai di autosabotarti in situazioni importanti?", options:["Sempre","Spesso","Raramente","Mai"]},
+  {text:"25. Quanto ti senti pronto/a ad affrontare un percorso di crescita personale e professionale?", options:["Poco pronto/a","Abbastanza pronto/a","Molto pronto/a","Completamente pronto/a"]}
+];
+
+const femaleQuestions = [
+  {text:"F1. Quando prendi una decisione importante, cosa pesa di più?", options:["L’approvazione degli altri","L’istinto","La logica razionale","Il mio sentire profondo, anche se controcorrente"]},
+  {text:"F2. Hai mai detto “no” a qualcosa che ti faceva comodo ma non ti rappresentava?", options:["Mai","Raramente","Qualche volta","Più volte, senza rimpianti"]},
+  {text:"F3. Cosa ti blocca più spesso?", options:["Il giudizio altrui","La paura di sbagliare","Il pensiero di non essere pronta","Niente, quando sento che è giusto"]},
+  {text:"F4. Quante volte ti sei adattata per non essere “troppo”?", options:["Spesso","Qualche volta","Pochissime volte","Mai: sono come sono"]},
+  {text:"F5. Come definiresti il tuo rapporto con la tua voce (opinioni, emozioni, desideri)?", options:["Mi autocensuro spesso","La esprimo solo in contesti sicuri","Sto imparando a farla emergere","È la mia bussola, non la nego mai"]},
+  {text:"F6. Quando una persona del tuo team è in crisi, tu:", options:["Ti allontani per non farti coinvolgere","La ascolti, ma non sai cosa dire","Le stai vicino con presenza reale","La incoraggi a ritrovare sé stessa"]},
+  {text:"F7. Ti è mai stato detto che sei “troppo sensibile”?", options:["Sì, spesso","Qualche volta","No, mai","Sì, e lo considero un complimento"]},
+  {text:"F8. Se un progetto è giusto ma ferisce qualcuno lungo il percorso, tu:", options:["Prosegui comunque","Ti fermi e valuti","Cerchi una soluzione che tenga insieme","Lo trasformi per includere tutti"]},
+  {text:"F9. Quanto ti senti capace di influenzare un ambiente senza alzare la voce?", options:["Poco","Abbastanza","Molto","È una mia dote naturale"]},
+  {text:"F10. In un team guidato da te, cosa non deve mai mancare?", options:["Obiettivi chiari","Confronto acceso","Risultati misurabili","Cura reciproca"]},
+  {text:"F11. Quanto hai trasformato le tue esperienze dolorose in forza creativa?", options:["Mai","Poco","Abbastanza","Molto, è la mia risorsa principale"]},
+  {text:"F12. Quando vivi un fallimento, quanto ti senti ancora “degna”?", options:["Per niente","Solo se altri mi rassicurano","Abbastanza","Sempre, perché non è la mia identità"]},
+  {text:"F13. Ti è mai capitato di nascondere una parte di te per essere accettata?", options:["Sì, spesso","Qualche volta","Raramente","No, mai"]},
+  {text:"F14. Ti senti libera di mostrarti vulnerabile?", options:["No, lo evito","Solo in ambienti molto intimi","Sto imparando","Sì, la mia forza è anche lì"]},
+  {text:"F15. Come reagisci a una critica personale non costruttiva?", options:["Mi blocco","Mi ferisce, ma la ignoro","Cerco il significato nascosto","La uso per rafforzare la mia direzione"]},
+  {text:"F16. Cosa ti muove davvero nel lavoro?", options:["La sicurezza","Il riconoscimento","Il significato","La possibilità di cambiare il mondo"]},
+  {text:"F17. Se avessi carta bianca, guideresti un team tutto tuo?", options:["No","Solo se accompagnata","Sì, con una guida iniziale","Sì, lo sto già facendo mentalmente"]},
+  {text:"F18. Come scegli le persone con cui lavorare?", options:["Per convenienza","Per le competenze","Per affinità emotiva","Per visione e coraggio"]},
+  {text:"F19. Se qualcuno mina la tua autorevolezza, tu:", options:["Ti zittisci","Ti giustifichi","Rispondi con fermezza","Lasci parlare i tuoi risultati"]},
+  {text:"F20. Quanto ti fidi della tua visione anche quando nessuno la condivide?", options:["Poco","Abbastanza","Molto","Totalmente"]},
+  {text:"F21. Come descriveresti la tua presenza?", options:["Invisibile","Discreta","Interessante","Magnetica"]},
+  {text:"F22. Ti capita di influenzare persone senza volerlo?", options:["No","Raramente","A volte me ne accorgo","Sì, è una costante"]},
+  {text:"F23. Il tuo modo di attrarre è più:", options:["Mentale","Fisico","Emotivo","Invisibile e potente"]},
+  {text:"F24. Quanto spazio lasci all’intuizione nelle tue scelte?", options:["Mai","Poco","Abbastanza","Molto, la seguo spesso"]},
+  {text:"F25. In che misura ti senti capace di guidare senza controllare?", options:["Per niente","Poco","Abbastanza","Totalmente"]},
+  {text:"F26. Quanta energia seduttiva consapevole senti di avere?", options:["Nessuna","Leggera, non sempre la gestisco","Presente e crescente","Forte, centrata, trasformativa"]},
+  {text:"F27. Se ti trovi in una stanza piena di uomini autorevoli, tu:", options:["Ti metti in disparte","Ascolti in silenzio","Ti esprimi solo se interpellata","Ti fai notare con grazia e peso"]},
+  {text:"F28. Il tuo rapporto con l’autorità maschile è:", options:["Di soggezione","Di sfida","Di confronto","Di rispetto reciproco e alleanza"]},
+  {text:"F29. Ti senti spesso sottovalutata nel lavoro?", options:["Sì, regolarmente","A volte","Raramente","No, mi faccio valere"]},
+  {text:"F30. Ti riconosci come una leader, anche senza titolo?", options:["No","Solo in situazioni limitate","Sempre più","Sì, e lo vivo pienamente"]}
+];
+
+/* ====== State ====== */
+const formArea = document.getElementById('formArea');
+const progressWrap = document.getElementById('progressWrap');
+const progressBarInner = document.getElementById('progressBarInner');
+const progressText = document.getElementById('progressText');
+const askFemaleArea = document.getElementById('askFemaleArea');
+const resultArea = document.getElementById('resultArea');
+const legalPopup = document.getElementById('legal-popup');
+const btnAccept = document.getElementById('btnAccept');
+const btnDecline = document.getElementById('btnDecline');
+
+let standardAnswers = Array(standardQuestions.length).fill(0);
+let femaleAnswers = Array(femaleQuestions.length).fill(0);
+
+/* ====== Build standard form ====== */
+function buildStandardForm(){
+  progressWrap.style.display = 'flex';
+  progressBarInner.style.width = '0%';
+  progressText.textContent = `Domanda 0 / ${standardQuestions.length}`;
+  const container = document.createElement('div');
+  container.id = 'standardContainer';
+
+  standardQuestions.forEach((q, idx)=>{
+    const qBox = document.createElement('div');
+    qBox.className = 'question';
+    qBox.dataset.index = idx;
+
+    const qTitle = document.createElement('p');
+    qTitle.className = 'q-text';
+    qTitle.textContent = q.text;
+    qBox.appendChild(qTitle);
+
+    const opts = document.createElement('div');
+    opts.className = 'opts';
+    q.options.forEach((optText,optIdx)=>{
+      const label = document.createElement('label');
+      label.className = 'opt';
+      label.tabIndex = 0;
+
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      label.appendChild(dot);
+
+      const span = document.createElement('span');
+      span.textContent = optText;
+      label.appendChild(span);
+
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 's_q_'+idx;
+      input.value = (optIdx+1);
+      input.style.display = 'none';
+      label.appendChild(input);
+
+      label.addEventListener('click', ()=>{
+        const siblings = opts.querySelectorAll('.opt');
+        siblings.forEach(s=>s.classList.remove('selected'));
+        label.classList.add('selected');
+        input.checked = true;
+        standardAnswers[idx] = parseInt(input.value);
+        updateProgressStandard();
+      });
+      label.addEventListener('keydown', (ev)=>{
+        if(ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); label.click(); }
+      });
+
+      opts.appendChild(label);
+    });
+
+    qBox.appendChild(opts);
+    container.appendChild(qBox);
+  });
+
+  const controls = document.createElement('div');
+  controls.className = 'controls';
+  const left = document.createElement('div');
+  left.className = 'left';
+  const btn = document.createElement('button');
+  btn.className = 'primary';
+  btn.textContent = 'Prosegui';
+  btn.addEventListener('click', onSubmitStandard);
+  left.appendChild(btn);
+
+  const info = document.createElement('div');
+  info.className = 'muted';
+  info.textContent = 'Risultato mostrato solo alla fine. Nessun dato salvato.';
+  controls.appendChild(left);
+  controls.appendChild(info);
+
+  container.appendChild(controls);
+
+  formArea.innerHTML = '';
+  formArea.appendChild(container);
+}
+
+/* ====== Progress updates ====== */
+function updateProgressStandard(){
+  const answered = standardAnswers.filter(v=>v>0).length;
+  const total = standardQuestions.length;
+  const pct = Math.round((answered/total)*100);
+  progressBarInner.style.width = pct + '%';
+  progressText.textContent = `Domanda ${answered} / ${total}`;
+}
+function updateProgressFemale(){
+  const answered = femaleAnswers.filter(v=>v>0).length;
+  const total = femaleQuestions.length;
+  const pct = Math.round((answered/total)*100);
+  progressBarInner.style.width = pct + '%';
+  progressText.textContent = `Domanda ${answered} / ${total}`;
+}
+
+/* ====== Submit standard ====== */
+function onSubmitStandard(){
+  const unanswered = standardAnswers.filter(v=>v===0).length;
+  if(unanswered>0){
+    if(!confirm('Ci sono domande non compilate nel modulo standard. Vuoi procedere comunque? (le risposte mancanti verranno considerate come 1 punto)')) return;
+    standardAnswers = standardAnswers.map(v=> v===0 ? 1 : v);
+  }
+  document.getElementById('standardContainer').style.display = 'none';
+  askFemaleArea.style.display = 'block';
+  const sum = standardAnswers.reduce((a,b)=>a+b,0);
+  resultArea.innerHTML = `<div class="muted">Punteggio modulo standard (informativo): <strong>${sum}</strong></div>`;
+}
+
+/* ====== Female form build ====== */
+function buildFemaleForm(){
+  progressBarInner.style.width = '0%';
+  progressText.textContent = `Domanda 0 / ${femaleQuestions.length}`;
+  const container = document.createElement('div');
+  container.id = 'femaleContainer';
+
+  femaleQuestions.forEach((q, idx)=>{
+    const qBox = document.createElement('div');
+    qBox.className = 'question';
+    qBox.dataset.index = idx;
+
+    const qTitle = document.createElement('p');
+    qTitle.className = 'q-text';
+    qTitle.textContent = q.text;
+    qBox.appendChild(qTitle);
+
+    const opts = document.createElement('div');
+    opts.className = 'opts';
+    q.options.forEach((optText,optIdx)=>{
+      const label = document.createElement('label');
+      label.className = 'opt';
+      label.tabIndex = 0;
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      label.appendChild(dot);
+      const span = document.createElement('span');
+      span.textContent = optText;
+      label.appendChild(span);
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'f_q_'+idx;
+      input.value = (optIdx+1);
+      input.style.display = 'none';
+      label.appendChild(input);
+
+      label.addEventListener('click', ()=>{
+        const siblings = opts.querySelectorAll('.opt');
+        siblings.forEach(s=>s.classList.remove('selected'));
+        label.classList.add('selected');
+        input.checked = true;
+        femaleAnswers[idx] = parseInt(input.value);
+        updateProgressFemale();
+      });
+      label.addEventListener('keydown', (ev)=>{
+        if(ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); label.click(); }
+      });
+
+      opts.appendChild(label);
+    });
+
+    qBox.appendChild(opts);
+    container.appendChild(qBox);
+  });
+
+  const controls = document.createElement('div');
+  controls.className = 'controls';
+  const btn = document.createElement('button');
+  btn.className = 'primary';
+  btn.textContent = 'Vedi risultato finale';
+  btn.addEventListener('click', onSubmitFemale);
+  controls.appendChild(btn);
+  container.appendChild(controls);
+
+  formArea.innerHTML = '';
+  formArea.appendChild(container);
+}
+
+/* ====== Ask female handlers ====== */
+document.getElementById('btnNoFemale').addEventListener('click', ()=>{
+  askFemaleArea.style.display = 'none';
+  const standardScore = standardAnswers.reduce((a,b)=>a+b,0);
+  displayMaleResult(standardScore);
+});
+document.getElementById('btnYesFemale').addEventListener('click', ()=>{
+  askFemaleArea.style.display = 'none';
+  buildFemaleForm();
+});
+
+/* ====== Legal popup handlers ====== */
+btnAccept.addEventListener('click', ()=>{
+  legalPopup.style.display = 'none';
+  buildStandardForm();
+});
+btnDecline.addEventListener('click', ()=>{
+  legalPopup.style.display = 'none';
+  formArea.innerHTML = '<p class="muted">Hai scelto di non proseguire. Se vuoi compilare il questionario in futuro torna qui e accetta l’informativa.</p>';
+});
+
+/* ====== Female submit ====== */
+function onSubmitFemale(){
+  const unanswered = femaleAnswers.filter(v=>v===0).length;
+  if(unanswered>0){
+    if(!confirm('Ci sono domande non compilate nella parte femminile. Vuoi procedere comunque? (le risposte mancanti verranno considerate come 1 punto)')) return;
+    femaleAnswers = femaleAnswers.map(v=> v===0 ? 1 : v);
+  }
+  const femaleScore = femaleAnswers.reduce((a,b)=>a+b,0);
+  const standardScore = standardAnswers.reduce((a,b)=>a+b,0);
+  displayFemaleResult(femaleScore, standardScore);
+}
+
+/* ====== Results rendering ====== */
+function displayMaleResult(score){
+  let title='', detail='', bg='';
+  if(score <= 49){
+    title = 'Fascia 1 — Esclusione';
+    detail = 'Profilo incoerente, sabotante o non pronto.';
+    bg = '#c0392b';
+  } else if(score <= 64){
+    title = 'Fascia 2 — Influenzato';
+    detail = 'Profilo fragile, condizionato, da orientare.';
+    bg = '#f0ad4e';
+  } else if(score <= 79){
+    title = 'Fascia 3 — Positivo ma bloccato';
+    detail = 'Valori buoni, ma segnali di fatica o ambiente sbagliato.';
+    bg = '#28a745';
+  } else {
+    title = 'Fascia 4 — Leader coraggioso';
+    detail = 'Profilo forte, autentico, coerente e leale.';
+    bg = '#0b66a6';
+  }
+  showResultBox(title, `Totale punti: ${score}\n\n${detail}`, bg);
+}
+function displayFemaleResult(fScore, sScore){
+  let title='', detail='', bg='';
+  if(fScore < 50){
+    title = 'Fascia 1 – Esclusione dal progetto';
+    detail = 'Segnali principali:\n • Risposte passive, contraddittorie o auto-sabotanti\n • Deresponsabilizzazione o atteggiamento vittimistico\n • Mancanza di visione personale e obiettivi chiari\n • Nessuna influenza o attitudine relazionale\n • Dipendenza da validazione esterna\n\nInterpretazione:\nProfilo non adatto a un ambiente ad alta intensità valoriale.\nAzione consigliata: esclusione dal progetto o suggerimento di percorso di preparazione personale.';
+    bg = '#c0392b';
+  } else if(fScore <= 75){
+    title = 'Fascia 2 – Persona influenzata negativamente, con bisogno di de-waste';
+    detail = 'Segnali principali:\n • Potenziale presente ma bloccato da contesti sfavorevoli\n • Alternanza tra intuizione e insicurezza\n • Paura del giudizio, bisogno di approvazione\n • Visione non ancora strutturata\n • Sensibilità elevata non ancora incanalata in assertività\n\nInterpretazione:\nProfilo fragile ma recuperabile.\nAzione consigliata: affiancamento iniziale, mentorship mirata, inserimento in progetto con leadership guida.';
+    bg = '#f0ad4e';
+  } else if(fScore <= 95){
+    title = 'Fascia 3 – Persona positiva in ambiente sbagliato';
+    detail = 'Segnali principali:\n • Visione e valori coerenti, ma sottoutilizzati\n • Atteggiamenti costruttivi non sempre riconosciuti nel contesto\n • Tendenza ad adattarsi troppo pur di restare inclusa\n • Buona responsabilità relazionale\n • Apertura al cambiamento e alla crescita\n\nInterpretazione:\nProfilo promettente.\nAzione consigliata: inserimento diretto in progetto attivo, rafforzamento della fiducia e della leadership naturale.';
+    bg = '#28a745';
+  } else {
+    title = 'Fascia 4 – Leader coraggiosa e fedele';
+    detail = 'Segnali principali:\n • Leadership già attiva e consapevole\n • Elevata coerenza tra pensiero, parola e azione\n • Capacità di affrontare conflitti con maturità\n • Fiducia nei propri mezzi e spirito collaborativo\n • Forte responsabilità personale e visione a lungo termine\n\nInterpretazione:\nProfilo ideale per ruoli chiave.\nAzione consigliata: responsabilità immediata, incarico di riferimento, eventuale coinvolgimento strategico nel disegno del team.';
+    bg = '#0b66a6';
+  }
+
+  const extra = `\n\nPunteggio modulo femminile: ${fScore} su ${femaleQuestions.length*4}\nPunteggio modulo standard (informativo): ${sScore} su ${standardQuestions.length*4}`;
+  showResultBox(title, detail + extra, bg);
+}
+function showResultBox(title, text, color){
+  let box = document.getElementById('resultBox');
+  if(!box){
+    box = document.createElement('div');
+    box.id = 'resultBox';
+    box.style.borderRadius = '12px';
+    box.style.padding = '18px';
+    box.style.marginTop = '14px';
+    box.style.color = '#fff';
+    box.style.whiteSpace = 'pre-wrap';
+    document.getElementById('resultArea').appendChild(box);
+  }
+  box.style.display = 'block';
+  box.style.background = color;
+  box.innerHTML = `<div class="result-title">${title}</div><div class="result-sub">${text}</div>`;
+  box.scrollIntoView({behavior:'smooth'});
+}
+
+/* initial */
+(function init(){
+  // legal popup visible by default
+})();
+</script>
+</body>
+</html>
